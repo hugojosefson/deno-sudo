@@ -30,27 +30,31 @@ export interface SudoWorkerOptions {
 const INHERITED_PERMISSIONS: ResolvedStructuredPermissions =
   await getInheritedPermissions();
 
-export class SudoWorker {
+function createRunOptions(options?: SudoWorkerOptions): Deno.RunOptions {
+  return {
+    cmd: [
+      "sudo",
+      "-u",
+      options?.sudo?.asUser ?? "root",
+      Deno.execPath(),
+      "run",
+      ...toArgs(options?.deno?.permissions, INHERITED_PERMISSIONS),
+      DELEGATE_PATH,
+    ],
+    cwd: options?.sudo?.cwd,
+    env: options?.sudo?.env,
+    stdout: "piped",
+    stderr: "piped",
+    stdin: "piped",
+  };
+}
+
+export class SudoWorker implements Worker {
   private readonly process: Deno.Process;
 
   constructor(specifier: string | URL, options?: SudoWorkerOptions) {
-    const runOpts: Deno.RunOptions = {
-      cmd: [
-        "sudo",
-        "-u",
-        options?.sudo?.asUser ?? "root",
-        Deno.execPath(),
-        "run",
-        ...toArgs(options?.deno?.permissions, INHERITED_PERMISSIONS),
-        DELEGATE_PATH,
-      ],
-      cwd: options?.sudo?.cwd,
-      env: options?.sudo?.env,
-      stdout: "piped",
-      stderr: "piped",
-      stdin: "piped",
-    };
-    console.log(`runOpts = ${JSON.stringify(runOpts, null, 2)}`);
+    const runOpts = createRunOptions(options);
+    console.error(`runOpts = ${JSON.stringify(runOpts, null, 2)}`);
     this.process = Deno.run(runOpts);
   }
   readLines(): AsyncIterableIterator<string> {
