@@ -1,21 +1,36 @@
-interface WorkerOptions {
-  credentials?: RequestCredentials;
-  name?: string;
-  type: "module";
-}
+import { SudoProxyHandler } from "./proxy-handler.ts";
 
-export interface Sudo {
-  run(args: Deno.RunOptions): Deno.Process;
-  createWorker(stringUrl: string | URL, options?: WorkerOptions): Worker;
-}
+export type SudoRunOptions = Exclude<
+  Deno.RunOptions,
+  "cmd" | "stdout" | "stderr" | "stdin"
+>;
 
-export class SudoWorker extends Worker {
-}
+export class SudoProcess {
+  readonly process: Deno.Process;
 
-export async function activate(): Promise<Sudo> {
-  return {
-    run: Deno.run,
-    createWorker(stringUrl: string | URL, options?: WorkerOptions): Worker {
-    },
-  };
+  constructor(
+    asUser: string = "root",
+    extraDenoArgs: string[] = [],
+    runOptions?: SudoRunOptions,
+  ) {
+    const delegatePath: string = new URL("./delegate.ts", import.meta.url)
+      .toString();
+
+    this.process = Deno.run({
+      ...runOptions,
+      cmd: [
+        "sudo",
+        Deno.execPath(),
+        ...extraDenoArgs,
+        delegatePath,
+      ],
+    });
+  }
+
+  async import(url: string | URL): Promise<unknown> {
+    return new Proxy(
+      {},
+      new SudoProxyHandler(),
+    );
+  }
 }
