@@ -33,7 +33,7 @@ const INHERITED_PERMISSIONS: ResolvedStructuredPermissions =
 export class SudoWorker {
   private readonly process: Deno.Process;
 
-  constructor(stringUrl: string | URL, options?: SudoWorkerOptions) {
+  constructor(specifier: string | URL, options?: SudoWorkerOptions) {
     const runOpts: Deno.RunOptions = {
       cmd: [
         "sudo",
