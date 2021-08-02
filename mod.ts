@@ -1,36 +1,50 @@
-import { SudoProxyHandler } from "./proxy-handler.ts";
+const DELEGATE_PATH: string = new URL("./delegate.ts", import.meta.url)
+  .toString();
 
-export type SudoRunOptions = Exclude<
-  Deno.RunOptions,
-  "cmd" | "stdout" | "stderr" | "stdin"
->;
+export interface SudoOptions {
+  asUser?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+}
 
-export class SudoProcess {
-  readonly process: Deno.Process;
+export type DenoPermissions = "inherit" | "none" | {
+  env: boolean | "inherit" | "none" | string[];
+  hrtime: boolean | "inherit" | "none";
+  net: boolean | "inherit" | "none" | string[];
+  plugin: boolean | "inherit" | "none";
+  read: boolean | "inherit" | "none" | string[];
+  run: boolean | "inherit" | "none" | string[];
+  write: boolean | "inherit" | "none" | string[];
+};
 
-  constructor(
-    asUser: string = "root",
-    extraDenoArgs: string[] = [],
-    runOptions?: SudoRunOptions,
-  ) {
-    const delegatePath: string = new URL("./delegate.ts", import.meta.url)
-      .toString();
+export interface SudoWorkerOptions {
+  credentials?: RequestCredentials;
+  name?: string;
+  type: "module";
+  sudo?: SudoOptions;
+  deno?: {
+    namespace: boolean;
+    permissions: DenoPermissions;
+  };
+}
 
+function getDenoArgs(permissions: DenoPermissions = "inherit"): string[] {}
+
+export class SudoWorker implements Worker {
+  private readonly process: Deno.Process;
+
+  constructor(stringUrl: string | URL, options?: SudoWorkerOptions) {
+    const asUser = options?.sudo?.asUser ?? "root";
+    const denoArgs = getDenoArgs(options?.deno?.permissions);
     this.process = Deno.run({
-      ...runOptions,
       cmd: [
         "sudo",
+        "-u",
+        asUser,
         Deno.execPath(),
-        ...extraDenoArgs,
-        delegatePath,
+        ...denoArgs,
+        DELEGATE_PATH,
       ],
     });
-  }
-
-  async import(url: string | URL): Promise<unknown> {
-    return new Proxy(
-      {},
-      new SudoProxyHandler(),
-    );
   }
 }
