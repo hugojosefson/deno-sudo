@@ -1,10 +1,10 @@
 import {
-  DenoPermissions,
-  getInheritedPermissions,
-  ResolvedStructuredPermissions,
+  DenoPermission,
+  INHERITED_PERMISSIONS,
   toArgs,
-} from "./deno-permissions.ts";
-import { readLines } from "./deps.ts";
+} from "./deno-permission.ts";
+import { readLines, writeAll } from "./deps.ts";
+import { ListenerRemover, MessageManager } from "./message-manager.ts";
 import { Message } from "./message.ts";
 
 const DELEGATE_PATH: string = new URL("./delegate.ts", import.meta.url)
@@ -23,12 +23,9 @@ export interface SudoWorkerOptions {
   sudo?: SudoOptions;
   deno?: {
     namespace: boolean;
-    permissions: DenoPermissions;
+    permissions: DenoPermission;
   };
 }
-
-const INHERITED_PERMISSIONS: ResolvedStructuredPermissions =
-  await getInheritedPermissions();
 
 function createRunOptions(options?: SudoWorkerOptions): Deno.RunOptions {
   return {
@@ -49,23 +46,39 @@ function createRunOptions(options?: SudoWorkerOptions): Deno.RunOptions {
   };
 }
 
-export class SudoWorker implements Worker {
+export class SudoWorker {
   private readonly process: Deno.Process;
+  private readonly messageManager: MessageManager = new MessageManager();
 
   constructor(specifier: string | URL, options?: SudoWorkerOptions) {
     const runOpts = createRunOptions(options);
     console.error(`runOpts = ${JSON.stringify(runOpts, null, 2)}`);
     this.process = Deno.run(runOpts);
   }
+
   readLines(): AsyncIterableIterator<string> {
     return readLines(this.process.stdout!);
   }
-  write(message: Message): Promise<number> {
-    const process = this.process;
-    const stdin = process.stdin;
+
+  addMessageListener<M extends Message>(
+    type: M["type"],
+    listener: (message: M) => void,
+  ): ListenerRemover {
+    return this.messageManager.addMessageListener(type, listener);
+  }
+
+  async postMessage(message: Message): Promise<void> {
+    const process: Deno.Process = this.process;
+    const stdin: Deno.Writer | null | undefined = process.stdin;
     if (!stdin) throw new Error("ERROR: !this.process.stdin");
-    return stdin.write(
+    await writeAll(
+      stdin,
       new TextEncoder().encode(JSON.stringify(message) + "\n"),
     );
+  }
+
+  terminate(): void {
+    this.process.kill(9);
+    this.process.close();
   }
 }

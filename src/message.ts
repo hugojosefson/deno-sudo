@@ -1,5 +1,15 @@
-export type MessageType = "ping" | "pong";
+export type Message = Ready | Import | Any;
+export type MessageType = Message["type"];
 
-export interface Message {
-  type: MessageType;
+export interface Ready {
+  type: "ready";
+}
+
+export interface Import {
+  type: "import";
+  url: URL;
+}
+
+interface Any {
+  type: "*";
 }

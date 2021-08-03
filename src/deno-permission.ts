@@ -1,12 +1,7 @@
-export interface ResolvedStructuredPermissions {
-  hrtime: boolean;
-  plugin: boolean;
-  env: boolean | string[];
-  net: boolean | string[];
-  read: boolean | string[];
-  run: boolean | string[];
-  write: boolean | string[];
-}
+export const INHERITED_PERMISSIONS: ResolvedStructuredPermissions =
+  await getInheritedPermissions();
+
+export type DenoPermission = "inherit" | "none" | StructuredPermissions;
 
 export type StructuredPermissions = {
   hrtime: boolean | "inherit" | "none";
@@ -18,7 +13,15 @@ export type StructuredPermissions = {
   write: boolean | "inherit" | "none" | string[];
 };
 
-export type DenoPermissions = "inherit" | "none" | StructuredPermissions;
+export interface ResolvedStructuredPermissions {
+  hrtime: boolean;
+  plugin: boolean;
+  env: boolean | string[];
+  net: boolean | string[];
+  read: boolean | string[];
+  run: boolean | string[];
+  write: boolean | string[];
+}
 
 async function getInheritedPermission(
   name: Deno.PermissionName,
@@ -98,7 +101,7 @@ export function toArgs(
 ): string[];
 
 export function toArgs(
-  permissions: undefined | DenoPermissions = "inherit",
+  permissions: undefined | DenoPermission = "inherit",
   inherited?: ResolvedStructuredPermissions,
 ): string[] {
   if (permissions === "none") return [];
